@@ -1,0 +1,18 @@
+{
+  "CM-1001": {
+    "entity_name": "Meridian Capital Partners LLC",
+    "account_number": "****4821",
+    "effective_date": "01/15/2026",
+    "expiration_date": "01/15/2028",
+    "authorization_scope": "Wire transfers up to $500,000 and account maintenance requests",
+    "governing_entity_type": "Limited Liability Company"
+  },
+  "CM-1002": {
+    "entity_name": "Meridian Capital Partners LLC",
+    "account_number": "****9999",
+    "effective_date": "01/15/2026",
+    "expiration_date": "01/15/2028",
+    "authorization_scope": "Wire transfers up to $500,000",
+    "governing_entity_type": "Limited Liability Company"
+  }
+}

@@ -1,0 +1,39 @@
+# Pins are loose floors so a venv created with --system-site-packages can reuse
+# heavy packages (torch, sentence-transformers, llama-cpp-python) already present
+# in a global environment instead of re-downloading them.
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.6
+pydantic>=2.9
+python-multipart>=0.0.12
+python-dotenv>=1.0.1
+
+# --- orchestration / prompting -------------------------------------------
+langchain>=0.3.14
+langchain-core>=0.3.29
+langgraph>=0.2.60
+
+# --- LLM backend -------------------------------------------------------------
+# Default provider is `local` (LLM_PROVIDER=local): a GGUF model run in-process.
+llama-cpp-python>=0.3.0
+# Optional cloud/alternative providers -- install the one you need:
+# langchain-anthropic>=0.2.4     # LLM_PROVIDER=anthropic
+# langchain-openai>=0.2.5        # LLM_PROVIDER=openai (also LM Studio / Ollama via OPENAI_BASE_URL)
+# langchain-aws>=0.2.6           # LLM_PROVIDER=bedrock
+
+# --- ingestion / OCR ------------------------------------------------------
+pdfplumber>=0.11.4
+pytesseract>=0.3.13
+pdf2image>=1.17.0
+Pillow>=10.4.0
+reportlab>=4.0                   # data/generate_sample_docs.py
+
+# --- comparison / validation -------------------------------------------------
+rapidfuzz>=3.10.0
+sentence-transformers>=3.2.1     # optional at runtime: falls back to fuzzy match if unavailable
+
+# --- eventing --------------------------------------------------------------
+kafka-python>=2.0.2
+
+# --- tests ---------------------------------------------------------------
+pytest>=8.0
