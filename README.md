@@ -138,3 +138,32 @@ First request is slow (the GGUF model loads on demand). Kafka is disabled by
 default — events are logged as `[KAFKA-SIMULATED]`. The audit trail is written to
 `data/audit_log.jsonl`.
 
+### 6. Chat with it
+
+`chat_app.py` is a Gradio chatbot front end: drag a PDF into the chat box and
+it shows every stage of the pipeline's reasoning — classification rationale,
+per-field extraction with confidence bars and source snippets, exceptions
+raised, the extracted-vs-source comparison table, and the full audit trail —
+laid out as one chat reply. After uploading, type `compare CM-1001` (or
+`CM-1002`) to run post-load verification against a Contact Master record, or
+`audit` to re-print the audit trail.
+
+It's a plain HTTP client of the API above (`requests` calls to
+`/documents/process`, `/documents/{id}/compare-contact-master`,
+`/audit/{id}`) — not a reimplementation of the pipeline — so it needs the API
+server running (step 5) and lives in its **own venv**, separate from
+`.venv`:
+
+```powershell
+py -3.13 -m venv .venv-chat
+.\.venv-chat\Scripts\Activate.ps1
+pip install -r requirements-chat.txt
+python chat_app.py
+```
+
+Open http://127.0.0.1:7860. (Separate venv because `gradio` requires
+`huggingface-hub>=1.16`, which conflicts with the `transformers`/
+`tokenizers` pins `requirements.txt` needs for the optional
+semantic-comparison fallback in `app/comparison.py`; since `chat_app.py`
+only talks HTTP to the API, it never needs `transformers` at all.)
+
