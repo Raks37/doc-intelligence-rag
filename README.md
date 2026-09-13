@@ -1,11 +1,11 @@
 # Document Intelligence & Validation — Demo
 
 A working prototype covering every requirement in the AI Developer – Document
-Intelligence & Validation JD, built to demo in an interview.
+Intelligence & Validation.
 
 ## What it covers, mapped to the JD
 
-| JD requirement | Where it lives |
+|Requirement | Where it lives |
 |---|---|
 | Ingestion & classification pipeline | `app/pdf_parser.py`, `app/classifier.py` |
 | Template-based extraction (structured forms) | `app/extractors/template_extractor.py` |
@@ -117,6 +117,7 @@ The tests are deterministic and never call an LLM.
 
 ```powershell
 uvicorn app.main:app --reload
+
 ```
 
 Open http://127.0.0.1:8000/docs for Swagger UI, or use curl:
