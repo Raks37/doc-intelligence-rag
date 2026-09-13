@@ -20,7 +20,7 @@ PROVIDER = os.getenv("LLM_PROVIDER", "local")  # local | anthropic | openai | be
 MODEL_NAME = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
 
 # --- local (llama-cpp-python) settings -------------------------------------
-_DEFAULT_MODEL_PATH = r"C:\Users\raksh\AI\projects\phi-2.Q4_K_M.gguf"
+_DEFAULT_MODEL_PATH = r"C:\path\to\phi-2.Q4_K_M.gguf"
 LLM_MODEL_PATH = os.getenv("LLM_MODEL_PATH", _DEFAULT_MODEL_PATH)
 LLM_N_CTX = int(os.getenv("LLM_N_CTX", "2048"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))

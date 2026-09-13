@@ -1,0 +1,16 @@
+# Deps for chat_app.py (the Gradio chatbot front end) ONLY.
+#
+# Deliberately a separate venv/requirements file from requirements.txt:
+# gradio needs huggingface-hub>=1.16, which conflicts with the
+# transformers/tokenizers pins that requirements.txt's sentence-transformers
+# (used for the optional semantic-comparison fallback in app/comparison.py)
+# depends on. chat_app.py talks to the API over HTTP, so it never imports
+# app.* and never needs transformers -- keeping it in its own venv avoids
+# the conflict entirely instead of trying to reconcile it.
+#
+# Setup:
+#   py -3.13 -m venv .venv-chat
+#   .venv-chat\Scripts\pip install -r requirements-chat.txt
+
+gradio==6.27.0
+requests==2.34.2
