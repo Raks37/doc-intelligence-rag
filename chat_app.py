@@ -148,7 +148,8 @@ def _process_upload(file_path: str) -> str:
     footer = (
         "\n\n---\n\U0001f4a1 Type `compare <contact-master-id>` (e.g. `compare CM-1001`) "
         "to run post-load verification of this document against a Contact Master record, "
-        "or `audit` to re-print its audit trail."
+        "`audit` to re-print its audit trail, or `ask <question>` to ask it something "
+        "(e.g. `ask what is the authorization scope?`)."
     )
     return _fmt_pipeline_result(filename, state) + footer
 
@@ -180,6 +181,54 @@ def _handle_audit_command() -> str:
     return f"### Audit trail for `{document_id}`\n```json\n{json.dumps(resp.json(), indent=2)}\n```"
 
 
+def _handle_ask_command(question: str) -> str:
+    document_id = _SESSION_STATE.get("last_document_id")
+    if not document_id:
+        return "Upload a PDF first, then I can answer questions about it."
+
+    resp = requests.post(
+        f"{BACKEND_URL}/documents/{document_id}/ask",
+        params={"question": question},
+        # First ask auto-indexes (chunk + embed) then calls the LLM -- can be
+        # slow on CPU, same single-worker-blocks-event-loop reasoning as
+        # _process_upload's audit-fetch timeout above.
+        timeout=REQUEST_TIMEOUT,
+    )
+    if resp.status_code != 200:
+        return f"❌ Backend returned {resp.status_code}:\n```\n{resp.text}\n```"
+
+    a = resp.json()
+    lines = [f"### 💬 {question}"]
+
+    if a.get("blocked"):
+        lines.append(f"🚫 {a['answer']}")
+        lines.append(f"> blocked: _{a.get('block_reason')}_")
+        return "\n".join(lines)
+
+    lines.append(a["answer"])
+    icon = "✅" if a["grounded"] else "⚠️"
+    lines.append(
+        f"{icon} grounded: **{a['grounded']}**  ·  confidence {a['confidence']:.2f} "
+        f"{_confidence_bar(a['confidence'])}"
+    )
+    if a.get("pii_redacted"):
+        lines.append("🔒 a value that looked like an account number was masked in this answer")
+
+    retrieved = a.get("retrieved_chunks") or []
+    if retrieved:
+        method = "cosine similarity to your question" if a["retrieval_method"] == "semantic" \
+            else "keyword match (embedding model unavailable)"
+        rows = "\n".join(
+            f"| {r['chunk']['chunk_index']} | {r['score']:.3f} | {r['chunk']['text'][:80]}… |"
+            for r in retrieved
+        )
+        lines.append(
+            f"\n**Reasoning:** ranked by {method}; kept the top {len(retrieved)} excerpt(s).\n\n"
+            f"| chunk | score | excerpt |\n|---|---|---|\n{rows}"
+        )
+    return "\n".join(lines)
+
+
 def chat_fn(message: dict, history: list) -> str:
     files = message.get("files") or []
     text = (message.get("text") or "").strip()
@@ -209,11 +258,20 @@ def chat_fn(message: dict, history: list) -> str:
         except requests.exceptions.ConnectionError:
             return f"❌ Can't reach the backend at `{BACKEND_URL}`."
 
+    if text.lower().startswith("ask "):
+        question = text[len("ask "):].strip()
+        if not question:
+            return "Usage: `ask <question>`, e.g. `ask what is the account number?`"
+        try:
+            return _handle_ask_command(question)
+        except requests.exceptions.ConnectionError:
+            return f"❌ Can't reach the backend at `{BACKEND_URL}`."
+
     return (
         "\U0001f4ce Attach a PDF (Authorization Certificate) to run it through the full pipeline: "
         "ingest → classify → extract → confidence-score → flag exceptions → "
         "compare vs. source → audit log. I'll show every stage's reasoning and output.\n\n"
-        "After that, try `compare CM-1001` or `audit`."
+        "After that, try `compare CM-1001`, `audit`, or `ask <question>`."
     )
 
 

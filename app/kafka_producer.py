@@ -21,6 +21,7 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC_EXTRACTION_COMPLETE = "doc-intelligence.extraction.completed"
 TOPIC_EXCEPTIONS = "doc-intelligence.exceptions.raised"
 TOPIC_COMPARISON_RESULT = "doc-intelligence.comparison.completed"
+TOPIC_QA_ANSWERED = "doc-intelligence.qa.answered"
 
 _producer = None
 

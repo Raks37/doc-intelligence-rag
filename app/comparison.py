@@ -19,8 +19,8 @@ semantic layer (sentence-transformers) for free-text fields like
 'authorization_scope' where wording can differ without meaning differing.
 """
 import logging
-from functools import lru_cache
 from rapidfuzz import fuzz
+from app.embeddings import get_embedder
 from app.schemas import (
     AuthorizationCertificateExtraction, ComparisonResult, ComparisonType,
     ComparisonStatus, FieldComparison,
@@ -35,18 +35,12 @@ MATCH_THRESHOLD = 0.90
 PARTIAL_THRESHOLD = 0.65
 
 
-@lru_cache
-def _get_embedder():
-    from sentence_transformers import SentenceTransformer
-    return SentenceTransformer("all-MiniLM-L6-v2")
-
-
 def _semantic_similarity(a: str, b: str) -> float:
     """Cosine similarity of sentence embeddings. If the embedding model can't be
     loaded (e.g. running offline and it isn't cached), degrade gracefully to a
     fuzzy token match rather than failing the whole comparison."""
     try:
-        model = _get_embedder()
+        model = get_embedder()
     except Exception as e:  # noqa: BLE001 - any load/download failure -> fallback
         logger.warning("Embedding model unavailable (%s); falling back to fuzzy match", e)
         return fuzz.token_sort_ratio(a, b) / 100
