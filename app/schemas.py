@@ -168,3 +168,41 @@ class PipelineState(BaseModel):
     contact_master_vs_source: Optional[ComparisonResult] = None
     exceptions: list[ExceptionRecord] = Field(default_factory=list)
     status: str = "ingested"
+
+
+# ---------------------------------------------------------------------------
+# 6. RAG Q&A (chunking / retrieval / answer generation)
+# ---------------------------------------------------------------------------
+
+class DocumentChunk(BaseModel):
+    document_id: str
+    chunk_index: int
+    text: str
+
+
+class RetrievedChunk(BaseModel):
+    chunk: DocumentChunk
+    score: float = Field(ge=0.0, le=1.0, description="Cosine similarity, or "
+                          "RapidFuzz ratio if the embedding model was unavailable")
+
+
+class RAGAnswer(BaseModel):
+    """Result of asking a free-text question about a processed document.
+    `retrieved_chunks` carries full chunk text + score (not just indices) so
+    a caller -- the chat front end included -- can show *why* this answer
+    was given, not just what it was."""
+    document_id: str
+    question: str
+    answer: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    grounded: bool = Field(description="Model's self-report of whether the "
+                            "answer is actually supported by the retrieved context")
+    retrieval_method: str = Field(description="'semantic' | 'fuzzy_fallback' | 'blocked'")
+    retrieved_chunks: list[RetrievedChunk] = Field(default_factory=list)
+    blocked: bool = Field(default=False, description="True if a guardrail "
+                           "refused the question before any retrieval/LLM call")
+    block_reason: Optional[str] = None
+    pii_redacted: bool = Field(default=False, description="True if the "
+                                "answer contained an account-number-shaped "
+                                "value that was masked before returning it")
+    answered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

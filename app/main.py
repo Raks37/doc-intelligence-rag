@@ -8,6 +8,8 @@ JD responsibility so it's easy to demo requirement-by-requirement:
   POST /documents/{id}/compare-contact-master  -> post-load verification (#5b)
   GET  /documents/{id}/exceptions       -> exception queue for workflow platform
   GET  /audit/{id}                      -> explainability / audit trail
+  POST /documents/{id}/index            -> on-demand RAG chunk+embed indexing
+  POST /documents/{id}/ask              -> free-text Q&A over the document (RAG)
 """
 import json
 import uuid
@@ -19,8 +21,10 @@ from fastapi.responses import JSONResponse
 from app.graph_pipeline import run_pipeline
 from app.schemas import AuthorizationCertificateExtraction
 from app.comparison import compare_contact_master_vs_source
+from app.rag import build_index, answer_question, DocumentIndex
 from app.kafka_producer import (
-    publish_event, TOPIC_EXTRACTION_COMPLETE, TOPIC_EXCEPTIONS, TOPIC_COMPARISON_RESULT,
+    publish_event, TOPIC_EXTRACTION_COMPLETE, TOPIC_EXCEPTIONS,
+    TOPIC_COMPARISON_RESULT, TOPIC_QA_ANSWERED,
 )
 from app.audit import AUDIT_LOG_PATH
 
@@ -38,6 +42,12 @@ CONTACT_MASTER_PATH = Path(__file__).resolve().parent.parent / "data" / "contact
 
 # In-memory store for the demo; swap for Postgres/DynamoDB in production.
 _STATE_STORE: dict[str, dict] = {}
+
+# Holds live DocumentIndex objects (incl. numpy embedding matrices) per
+# document -- unlike _STATE_STORE this isn't JSON-safe, so it's kept in its
+# own store rather than folded in. Same "swap for a real vector DB in
+# production" caveat applies.
+_RAG_INDEX_STORE: dict[str, DocumentIndex] = {}
 
 
 @app.post("/documents/process")
@@ -89,6 +99,41 @@ async def compare_contact_master(document_id: str, contact_master_id: str):
     result = compare_contact_master_vs_source(document_id, contact_master_record, source_record)
     publish_event(TOPIC_COMPARISON_RESULT, key=document_id, payload=result.model_dump())
     return result.model_dump(mode="json")
+
+
+@app.post("/documents/{document_id}/index")
+async def index_document(document_id: str):
+    """On-demand chunk + embed -- not part of /documents/process, so a
+    document nobody ever questions never pays this cost."""
+    state = _STATE_STORE.get(document_id)
+    if not state:
+        raise HTTPException(404, "Document not found")
+
+    index = build_index(document_id, state["raw_text"] or "")
+    _RAG_INDEX_STORE[document_id] = index
+    return {
+        "document_id": document_id,
+        "chunk_count": len(index.chunks),
+        "embedding_backend": "semantic" if index.embeddings is not None else "fuzzy_fallback",
+    }
+
+
+@app.post("/documents/{document_id}/ask")
+async def ask_document(document_id: str, question: str):
+    """Free-text RAG Q&A. Auto-indexes on first call if /index wasn't
+    called explicitly first."""
+    state = _STATE_STORE.get(document_id)
+    if not state:
+        raise HTTPException(404, "Document not found")
+
+    index = _RAG_INDEX_STORE.get(document_id)
+    if index is None:
+        index = build_index(document_id, state["raw_text"] or "")
+        _RAG_INDEX_STORE[document_id] = index
+
+    answer = answer_question(document_id, index, question)
+    publish_event(TOPIC_QA_ANSWERED, key=document_id, payload=answer.model_dump())
+    return answer.model_dump(mode="json")
 
 
 @app.get("/audit/{document_id}")
